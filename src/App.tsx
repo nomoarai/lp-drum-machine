@@ -48,7 +48,7 @@ export default function App() {
   })
 
   const handleStart = useCallback(async () => {
-    await initAudio()
+    initAudio() // synchronous — must run before any await to unlock iOS audio
     await start()
     setStatus('트리거 라인에 라벨지를 통과시키세요')
     setTimeout(() => setStatus(''), 4000)

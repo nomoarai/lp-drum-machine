@@ -77,10 +77,18 @@ export function useAudio() {
     return busRef.current
   }, [getAC])
 
-  // Must be called from a user gesture (button click) to unlock audio on iOS
-  const initAudio = useCallback(async () => {
+  // Must be called synchronously inside a user gesture to unlock iOS audio.
+  // async/await breaks the gesture chain on Safari — keep this fully synchronous.
+  const initAudio = useCallback(() => {
     const ac = getAC()
-    if (ac.state === 'suspended') await ac.resume()
+    // iOS silent-buffer unlock: playing a 1-sample buffer within the gesture
+    // fully activates the AudioContext even before resume() completes.
+    const buf = ac.createBuffer(1, 1, 22050)
+    const src = ac.createBufferSource()
+    src.buffer = buf
+    src.connect(ac.destination)
+    src.start(0)
+    if (ac.state === 'suspended') ac.resume()
     getBus()
   }, [getAC, getBus])
 
