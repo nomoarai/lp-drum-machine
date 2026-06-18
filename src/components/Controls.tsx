@@ -6,6 +6,8 @@ interface Props {
   reverb: number
   delay: number
   delayBpm: number
+  recording: boolean
+  blobUrl: string | null
   onStart: () => void
   onStop: () => void
   onSensitivityChange: (v: number) => void
@@ -13,14 +15,18 @@ interface Props {
   onReverbChange: (v: number) => void
   onDelayChange: (v: number) => void
   onDelayBpmChange: (v: number) => void
+  onRecordStart: () => void
+  onRecordStop: () => void
 }
 
 export function Controls({
   running, sensitivity, cooldownMs, bpm,
   reverb, delay, delayBpm,
+  recording, blobUrl,
   onStart, onStop,
   onSensitivityChange, onCooldownChange,
   onReverbChange, onDelayChange, onDelayBpmChange,
+  onRecordStart, onRecordStop,
 }: Props) {
   return (
     <div className="flex flex-col gap-1.5">
@@ -62,7 +68,43 @@ export function Controls({
         </span>
       </div>
 
-      {/* Row 2: effects */}
+      {/* Row 2: recording */}
+      <div className="flex items-center gap-2.5 flex-wrap">
+        <span className="text-[9px] tracking-widest shrink-0" style={{ color: '#333' }}>REC</span>
+
+        <button
+          onClick={recording ? onRecordStop : onRecordStart}
+          disabled={!running}
+          className="px-3 py-1 text-[10px] font-bold tracking-wider rounded-sm shrink-0 cursor-pointer disabled:opacity-30"
+          style={{
+            background: recording ? '#ff3333' : '#222',
+            color: recording ? '#fff' : '#888',
+            border: '1px solid #333',
+            fontFamily: 'monospace',
+          }}
+        >
+          {recording ? '⏹ STOP' : '⏺ REC'}
+        </button>
+
+        {recording && (
+          <span className="text-[9px] tracking-wider animate-pulse" style={{ color: '#ff3333' }}>
+            REC...
+          </span>
+        )}
+
+        {blobUrl && !recording && (
+          <a
+            href={blobUrl}
+            download="lp-drum-machine.webm"
+            className="text-[10px] tracking-wider px-3 py-1 rounded-sm"
+            style={{ background: '#1a1a1a', color: '#aaa', border: '1px solid #333', fontFamily: 'monospace' }}
+          >
+            ↓ SAVE
+          </a>
+        )}
+      </div>
+
+      {/* Row 3: effects */}
       <div className="flex items-center gap-2.5 flex-wrap">
         <span className="text-[9px] tracking-widest shrink-0" style={{ color: '#333' }}>FX</span>
 

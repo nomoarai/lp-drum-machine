@@ -5,6 +5,7 @@ import { Controls } from './components/Controls'
 import { useCamera } from './hooks/useCamera'
 import { useAudio } from './hooks/useAudio'
 import { useDetectionLoop } from './hooks/useDetectionLoop'
+import { useRecorder } from './hooks/useRecorder'
 import { COLOR_NAMES, type ColorName } from './types'
 
 const emptyActive = () =>
@@ -24,8 +25,9 @@ export default function App() {
   const videoRef = useRef<HTMLVideoElement>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
-  const { running, error, start, stop } = useCamera(videoRef)
-  const { trigger, setReverb, setDelay, setDelayTime } = useAudio()
+  const { running, error, facingMode, start, stop } = useCamera(videoRef)
+  const { trigger, setReverb, setDelay, setDelayTime, initAudio, audioStream } = useAudio()
+  const { recording, start: startRecording, stop: stopRecording, blobUrl } = useRecorder(canvasRef, audioStream)
 
   const handleTrigger = useCallback((color: ColorName) => {
     const newBpm = trigger(color)
@@ -41,14 +43,16 @@ export default function App() {
     sensitivity,
     cooldownMs,
     running,
+    facingMode,
     onTrigger: handleTrigger,
   })
 
   const handleStart = useCallback(async () => {
+    await initAudio()
     await start()
     setStatus('트리거 라인에 라벨지를 통과시키세요')
     setTimeout(() => setStatus(''), 4000)
-  }, [start])
+  }, [start, initAudio])
 
   const handleStop = useCallback(() => {
     stop()
@@ -90,6 +94,7 @@ export default function App() {
         running={running}
         status={error ?? status}
         triggerRatio={triggerRatio}
+        facingMode={facingMode}
         onRatioChange={setTriggerRatio}
       />
 
@@ -106,6 +111,8 @@ export default function App() {
           reverb={reverb}
           delay={delay}
           delayBpm={delayBpm}
+          recording={recording}
+          blobUrl={blobUrl}
           onStart={handleStart}
           onStop={handleStop}
           onSensitivityChange={setSensitivity}
@@ -113,6 +120,8 @@ export default function App() {
           onReverbChange={handleReverbChange}
           onDelayChange={handleDelayChange}
           onDelayBpmChange={handleDelayBpmChange}
+          onRecordStart={startRecording}
+          onRecordStop={stopRecording}
         />
       </div>
     </div>

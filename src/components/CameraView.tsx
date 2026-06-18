@@ -6,10 +6,11 @@ interface Props {
   running: boolean
   status: string
   triggerRatio: number
+  facingMode: string
   onRatioChange: (r: number) => void
 }
 
-export function CameraView({ videoRef, canvasRef, running, status, triggerRatio, onRatioChange }: Props) {
+export function CameraView({ videoRef, canvasRef, running, status, triggerRatio, facingMode, onRatioChange }: Props) {
   const dragRef = useRef(false)
   const wrapRef = useRef<HTMLDivElement>(null)
 
@@ -46,7 +47,7 @@ export function CameraView({ videoRef, canvasRef, running, status, triggerRatio,
         playsInline
         muted
         className="absolute inset-0 w-full h-full object-cover"
-        style={{ transform: 'scaleX(-1)' }}
+        style={{ transform: facingMode === 'environment' ? 'none' : 'scaleX(-1)' }}
       />
 
       <canvas

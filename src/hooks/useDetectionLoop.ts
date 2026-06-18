@@ -1,5 +1,5 @@
 import { useRef, useEffect, type RefObject } from 'react'
-import { countColors } from '../lib/color'
+import { countColorsWithCentroid } from '../lib/color'
 import { COLOR_NAMES, type ColorName } from '../types'
 
 const ANALYSIS_W = 320
@@ -12,6 +12,7 @@ interface Options {
   sensitivity: number
   cooldownMs: number
   running: boolean
+  facingMode: string
   onTrigger: (color: ColorName) => void
 }
 
@@ -27,6 +28,7 @@ export function useDetectionLoop(opts: Options) {
     >
   )
   const lastHitMsRef = useRef(0)
+  const lastHitYRef = useRef(0.5)
 
   useEffect(() => {
     if (!opts.running) return
@@ -66,18 +68,22 @@ export function useDetectionLoop(opts: Options) {
       off.width = ANALYSIS_W
       off.height = Math.round(ANALYSIS_W * dh / dw)
       const offCtx = off.getContext('2d')!
-      // Mirror-flip to match CSS scaleX(-1) on <video>
+
+      const shouldMirror = optsRef.current.facingMode !== 'environment'
       offCtx.save()
-      offCtx.translate(off.width, 0)
-      offCtx.scale(-1, 1)
+      if (shouldMirror) {
+        offCtx.translate(off.width, 0)
+        offCtx.scale(-1, 1)
+      }
       offCtx.drawImage(video, sx, sy, cropW, cropH, 0, 0, off.width, off.height)
       offCtx.restore()
 
       const lx = Math.round(triggerRatio * off.width)
       const x0 = Math.max(0, lx - STRIP_HALF)
       const x1 = Math.min(off.width - 1, lx + STRIP_HALF)
-      const strip = offCtx.getImageData(x0, 0, x1 - x0 + 1, off.height)
-      const counts = countColors(strip.data)
+      const stripW = x1 - x0 + 1
+      const strip = offCtx.getImageData(x0, 0, stripW, off.height)
+      const { counts, centroidY } = countColorsWithCentroid(strip.data, stripW, off.height)
 
       const nowMs = performance.now()
       for (const name of COLOR_NAMES) {
@@ -87,13 +93,14 @@ export function useDetectionLoop(opts: Options) {
           st.inZone = true
           st.lastMs = nowMs
           lastHitMsRef.current = nowMs
+          lastHitYRef.current = centroidY[name]
           onTrigger(name)
         } else if (!detected) {
           st.inZone = false
         }
       }
 
-      drawOverlay(canvas, triggerRatio, counts, sensitivity, nowMs - lastHitMsRef.current)
+      drawOverlay(canvas, triggerRatio, counts, sensitivity, nowMs - lastHitMsRef.current, lastHitYRef.current)
 
       animId = requestAnimationFrame(tick)
     }
@@ -108,7 +115,8 @@ function drawOverlay(
   triggerRatio: number,
   counts: Record<ColorName, number>,
   sensitivity: number,
-  hitAgeMs: number
+  hitAgeMs: number,
+  hitYRatio: number
 ) {
   const ctx = canvas.getContext('2d')!
   const w = canvas.width
@@ -159,7 +167,8 @@ function drawOverlay(
   ctx.fill()
   ctx.restore()
 
-  // Hit flash: expanding ring burst at trigger midpoint
+  // Hit flash: expanding ring burst at detected label position
+  const hitY = hitYRatio * h
   if (hitFade > 0) {
     const progress = 1 - hitFade           // 0 → 1 as fade progresses
     const ringR = 12 + progress * 36
@@ -168,7 +177,7 @@ function drawOverlay(
     ctx.lineWidth = 2.5 * hitFade
     ctx.globalAlpha = hitFade * 0.9
     ctx.beginPath()
-    ctx.arc(lx, h * 0.75, ringR, 0, Math.PI * 2)
+    ctx.arc(lx, hitY, ringR, 0, Math.PI * 2)
     ctx.stroke()
     // Inner fill flash
     ctx.globalAlpha = hitFade * 0.18

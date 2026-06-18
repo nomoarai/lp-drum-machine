@@ -1,4 +1,4 @@
-import { useRef, useCallback } from 'react'
+import { useRef, useCallback, useState } from 'react'
 import { playKick, playSnare, playChimeBell, playDeepTom, createImpulseReverb } from '../lib/sounds'
 import type { ColorName } from '../types'
 
@@ -7,16 +7,21 @@ interface EffectBus {
   reverbWet: GainNode
   delayWet: GainNode
   delayTime: DelayNode
+  audioStream: MediaStream
 }
 
 function buildEffectBus(ac: AudioContext): EffectBus {
   const input = ac.createGain()
+  const master = ac.createGain()
+  master.connect(ac.destination)
+  const streamDest = ac.createMediaStreamDestination()
+  master.connect(streamDest)
 
   // Dry
   const dry = ac.createGain()
   dry.gain.value = 1.0
   input.connect(dry)
-  dry.connect(ac.destination)
+  dry.connect(master)
 
   // Reverb
   const conv = createImpulseReverb(ac, 2.8, 1.8)
@@ -24,7 +29,7 @@ function buildEffectBus(ac: AudioContext): EffectBus {
   reverbWet.gain.value = 0
   input.connect(conv)
   conv.connect(reverbWet)
-  reverbWet.connect(ac.destination)
+  reverbWet.connect(master)
 
   // Delay
   const delayTime = ac.createDelay(1.0)
@@ -37,9 +42,9 @@ function buildEffectBus(ac: AudioContext): EffectBus {
   delayTime.connect(feedback)
   feedback.connect(delayTime)
   delayTime.connect(delayWet)
-  delayWet.connect(ac.destination)
+  delayWet.connect(master)
 
-  return { input, reverbWet, delayWet, delayTime }
+  return { input, reverbWet, delayWet, delayTime, audioStream: streamDest.stream }
 }
 
 const SOUND_FNS: Record<ColorName, (ac: AudioContext, dest: AudioNode) => void> = {
@@ -53,6 +58,7 @@ export function useAudio() {
   const acRef = useRef<AudioContext | null>(null)
   const busRef = useRef<EffectBus | null>(null)
   const lastKickRef = useRef<number>(0)
+  const [audioStream, setAudioStream] = useState<MediaStream | null>(null)
 
   const getAC = useCallback((): AudioContext => {
     if (!acRef.current) {
@@ -64,9 +70,19 @@ export function useAudio() {
 
   const getBus = useCallback((): EffectBus => {
     const ac = getAC()
-    if (!busRef.current) busRef.current = buildEffectBus(ac)
+    if (!busRef.current) {
+      busRef.current = buildEffectBus(ac)
+      setAudioStream(busRef.current.audioStream)
+    }
     return busRef.current
   }, [getAC])
+
+  // Must be called from a user gesture (button click) to unlock audio on iOS
+  const initAudio = useCallback(async () => {
+    const ac = getAC()
+    if (ac.state === 'suspended') await ac.resume()
+    getBus()
+  }, [getAC, getBus])
 
   const trigger = useCallback((color: ColorName): number | null => {
     const ac = getAC()
@@ -97,5 +113,5 @@ export function useAudio() {
     }
   }, [])
 
-  return { trigger, setReverb, setDelay, setDelayTime }
+  return { trigger, setReverb, setDelay, setDelayTime, initAudio, audioStream }
 }

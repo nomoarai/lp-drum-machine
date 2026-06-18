@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback } from 'react'
-import { countColors } from '../lib/color'
+import { countColorsWithCentroid } from '../lib/color'
 import { COLOR_NAMES, type ColorName } from '../types'
 
 const ANALYSIS_W = 320
@@ -84,8 +84,9 @@ export function useColorDetection(opts: Options) {
       const lx = Math.round(triggerRatio * off.width)
       const x0 = Math.max(0, lx - STRIP_HALF)
       const x1 = Math.min(off.width - 1, lx + STRIP_HALF)
-      const strip = offCtx.getImageData(x0, 0, x1 - x0 + 1, off.height)
-      const counts = countColors(strip.data)
+      const stripW = x1 - x0 + 1
+      const strip = offCtx.getImageData(x0, 0, stripW, off.height)
+      const { counts } = countColorsWithCentroid(strip.data, stripW, off.height)
 
       onFrame(counts)
 

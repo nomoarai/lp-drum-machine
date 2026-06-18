@@ -35,17 +35,28 @@ export function classifyPixel(r: number, g: number, b: number): ColorName | null
   return null
 }
 
-/**
- * Sample a vertical strip of pixels from imageData and count colour matches.
- * imageData should already be cropped to just the strip.
- */
-export function countColors(pixels: Uint8ClampedArray): Record<ColorName, number> {
+export function countColorsWithCentroid(
+  pixels: Uint8ClampedArray,
+  stripWidth: number,
+  stripHeight: number
+): { counts: Record<ColorName, number>; centroidY: Record<ColorName, number> } {
   const counts: Record<ColorName, number> = { red: 0, blue: 0, yellow: 0, green: 0 }
+  const ySum: Record<ColorName, number> = { red: 0, blue: 0, yellow: 0, green: 0 }
 
-  for (let i = 0; i < pixels.length; i += 4) {
+  const pixelCount = pixels.length / 4
+  for (let p = 0; p < pixelCount; p++) {
+    const i = p * 4
     const hit = classifyPixel(pixels[i], pixels[i + 1], pixels[i + 2])
-    if (hit) counts[hit]++
+    if (hit) {
+      counts[hit]++
+      ySum[hit] += Math.floor(p / stripWidth)
+    }
   }
 
-  return counts
+  const centroidY: Record<ColorName, number> = { red: 0.5, blue: 0.5, yellow: 0.5, green: 0.5 }
+  for (const name of COLOR_NAMES) {
+    if (counts[name] > 0) centroidY[name] = ySum[name] / counts[name] / stripHeight
+  }
+
+  return { counts, centroidY }
 }

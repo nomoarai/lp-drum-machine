@@ -4,6 +4,7 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement | null>) {
   const streamRef = useRef<MediaStream | null>(null)
   const [running, setRunning] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [facingMode, setFacingMode] = useState('')
 
   const start = useCallback(async () => {
     setError(null)
@@ -20,6 +21,10 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement | null>) {
       if (!video) return
       video.srcObject = stream
       await video.play()
+
+      let fm = ''
+      try { fm = stream.getVideoTracks()[0]?.getSettings()?.facingMode ?? '' } catch { /* noop */ }
+      setFacingMode(fm)
       setRunning(true)
     } catch (e) {
       setError(e instanceof Error ? e.message : '카메라 오류')
@@ -31,8 +36,9 @@ export function useCamera(videoRef: RefObject<HTMLVideoElement | null>) {
     streamRef.current = null
     const video = videoRef.current
     if (video) video.srcObject = null
+    setFacingMode('')
     setRunning(false)
   }, [videoRef])
 
-  return { running, error, start, stop }
+  return { running, error, facingMode, start, stop }
 }
