@@ -26,7 +26,7 @@ export default function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
 
   const { running, error, facingMode, start, stop } = useCamera(videoRef)
-  const { trigger, setReverb, setDelay, setDelayTime, initAudio, audioStream } = useAudio()
+  const { trigger, setReverb, setDelay, setDelayTime, initAudio, resumeAudio, audioStream } = useAudio()
   const { recording, start: startRecording, stop: stopRecording, blobUrl } = useRecorder(canvasRef, audioStream)
 
   const handleTrigger = useCallback((color: ColorName) => {
@@ -50,9 +50,10 @@ export default function App() {
   const handleStart = useCallback(async () => {
     initAudio() // synchronous — must run before any await to unlock iOS audio
     await start()
+    resumeAudio() // iOS suspends AudioContext when getUserMedia runs — resume after
     setStatus('트리거 라인에 라벨지를 통과시키세요')
     setTimeout(() => setStatus(''), 4000)
-  }, [start, initAudio])
+  }, [start, initAudio, resumeAudio])
 
   const handleStop = useCallback(() => {
     stop()

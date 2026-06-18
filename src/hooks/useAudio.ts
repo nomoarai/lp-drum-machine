@@ -78,19 +78,24 @@ export function useAudio() {
   }, [getAC])
 
   // Must be called synchronously inside a user gesture to unlock iOS audio.
-  // async/await breaks the gesture chain on Safari — keep this fully synchronous.
   const initAudio = useCallback(() => {
     const ac = getAC()
-    // iOS silent-buffer unlock: playing a 1-sample buffer within the gesture
-    // fully activates the AudioContext even before resume() completes.
+    // iOS silent-buffer unlock
     const buf = ac.createBuffer(1, 1, 22050)
     const src = ac.createBufferSource()
     src.buffer = buf
     src.connect(ac.destination)
     src.start(0)
     if (ac.state === 'suspended') ac.resume()
+    // Auto-resume whenever iOS suspends the context (e.g. after getUserMedia)
+    ac.onstatechange = () => { if (ac.state === 'suspended') ac.resume() }
     getBus()
   }, [getAC, getBus])
+
+  // Call after camera starts — iOS suspends AudioContext when getUserMedia runs
+  const resumeAudio = useCallback(() => {
+    acRef.current?.resume()
+  }, [])
 
   const trigger = useCallback((color: ColorName): number | null => {
     const ac = getAC()
@@ -121,5 +126,5 @@ export function useAudio() {
     }
   }, [])
 
-  return { trigger, setReverb, setDelay, setDelayTime, initAudio, audioStream }
+  return { trigger, setReverb, setDelay, setDelayTime, initAudio, resumeAudio, audioStream }
 }
